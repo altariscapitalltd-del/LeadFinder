@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        env:
+          APP_URL: http://127.0.0.1:3000
+          APP_FROM_NAME: LeadForge
+          NEXTAUTH_SECRET: ci-placeholder-secret-32-characters-minimum
+          DATABASE_PATH: ./leadforge.db
+          PLAYWRIGHT_RENDER: 0
+          SMTP_ALLOW_INVALID_TLS: 0
+        run: pnpm build
+
+      - name: Start app
+        env:
+          APP_URL: http://127.0.0.1:3000
+          APP_FROM_NAME: LeadForge
+          NEXTAUTH_SECRET: ci-placeholder-secret-32-characters-minimum
+          DATABASE_PATH: ./leadforge.db
+          PLAYWRIGHT_RENDER: 0
+          SMTP_ALLOW_INVALID_TLS: 0
+        run: |
+          pnpm start > app.log 2>&1 &
+          echo $! > app.pid
+          sleep 10
+
+      - name: Smoke test
+        run: |
+          curl --fail http://127.0.0.1:3000/api/health
+          curl --fail http://127.0.0.1:3000/api/scrape/jobs
+          curl --fail http://127.0.0.1:3000/
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
+          if [ -f app.log ]; then cat app.log; fi
