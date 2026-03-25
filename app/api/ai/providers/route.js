@@ -1,50 +1,55 @@
 export const dynamic = "force-dynamic";
-// app/api/ai/providers/route.js
 import { NextResponse } from "next/server";
 import { getDb } from "../../../../lib/db.js";
+import { refreshProviderModels } from "../../../../lib/ai.js";
+
+const ALLOWED = new Set(["anthropic", "openai", "openrouter", "gemini", "groq", "compatible"]);
 
 export async function POST(req) {
   const body = await req.json();
-  const { provider, api_key, model, make_active } = body;
-  const allowedProviders = new Set(["anthropic", "openai", "groq"]);
+  const provider = String(body.provider || "").trim().toLowerCase();
+  const apiKey = String(body.api_key || "").trim();
+  const baseUrl = String(body.base_url || "").trim();
+  const providerType = String(body.provider_type || provider || "openai").trim().toLowerCase();
 
-  if (!provider || !api_key) {
+  if (!provider || !apiKey) {
     return NextResponse.json({ error: "provider and api_key required" }, { status: 400 });
   }
-  if (!allowedProviders.has(provider)) {
-    return NextResponse.json({ error: "provider must be one of anthropic, openai, groq" }, { status: 400 });
+  if (!ALLOWED.has(provider)) {
+    return NextResponse.json({ error: "Unsupported provider" }, { status: 400 });
   }
 
   const db = getDb();
-
-  // Upsert the provider
   db.prepare(`
-    INSERT INTO ai_settings (provider, api_key, model, active, updated_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
+    INSERT INTO ai_settings (provider, api_key, model, active, updated_at, base_url, provider_type, last_error)
+    VALUES (?, ?, NULL, 1, datetime('now'), ?, ?, NULL)
     ON CONFLICT(provider) DO UPDATE SET
       api_key = excluded.api_key,
-      model = excluded.model,
-      active = excluded.active,
-      updated_at = excluded.updated_at
-  `).run(provider, api_key, model || null, make_active ? 1 : 0);
+      active = 1,
+      updated_at = excluded.updated_at,
+      base_url = excluded.base_url,
+      provider_type = excluded.provider_type,
+      last_error = NULL
+  `).run(provider, apiKey, baseUrl || null, providerType);
 
-  // If making active, deactivate others
-  if (make_active) {
-    db.prepare("UPDATE ai_settings SET active = 0 WHERE provider != ?").run(provider);
-    db.prepare("UPDATE ai_settings SET active = 1 WHERE provider = ?").run(provider);
+  try {
+    const models = await refreshProviderModels(provider);
+    return NextResponse.json({ message: `${provider} connected`, modelsDiscovered: models.length });
+  } catch (error) {
+    db.prepare("UPDATE ai_settings SET last_error = ?, updated_at = datetime('now') WHERE provider = ?").run(error.message, provider);
+    return NextResponse.json({ message: `${provider} saved`, warning: error.message });
   }
-
-  return NextResponse.json({ message: `${provider} API key saved${make_active ? " and activated" : ""}` });
 }
 
 export async function DELETE(req) {
   const { searchParams } = new URL(req.url);
-  const provider = searchParams.get("provider");
-  const allowedProviders = new Set(["anthropic", "openai", "groq"]);
-  if (!provider || !allowedProviders.has(provider)) {
+  const provider = String(searchParams.get("provider") || "").trim().toLowerCase();
+  if (!provider || !ALLOWED.has(provider)) {
     return NextResponse.json({ error: "valid provider is required" }, { status: 400 });
   }
   const db = getDb();
   db.prepare("DELETE FROM ai_settings WHERE provider = ?").run(provider);
+  db.prepare("DELETE FROM ai_models WHERE provider = ?").run(provider);
+  db.prepare("DELETE FROM ai_model_stats WHERE provider = ?").run(provider);
   return NextResponse.json({ message: "Provider removed" });
 }

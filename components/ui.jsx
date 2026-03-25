@@ -92,6 +92,30 @@ export function Input({ label, value, onChange, placeholder, type="text", classN
   );
 }
 
+export function DatalistInput({ label, value, onChange, options, placeholder, listId, className="" }) {
+  const id = listId || `list-${label || "options"}`.toLowerCase().replace(/\s+/g, "-");
+  return (
+    <div className={className}>
+      {label && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.8px",fontWeight:600}}>{label}</div>}
+      <input
+        list={id}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          background:"var(--bg-elevated)",border:"1px solid var(--border)",
+          borderRadius:7,padding:"8px 12px",fontSize:12,
+          color:"var(--text-primary)",outline:"none",width:"100%",
+          fontFamily:"var(--font-body)",transition:"border-color 0.15s"
+        }}
+      />
+      <datalist id={id}>
+        {options.map((option) => <option key={option} value={option} />)}
+      </datalist>
+    </div>
+  );
+}
+
 export function Select({ label, value, onChange, options, className="" }) {
   return (
     <div className={className}>

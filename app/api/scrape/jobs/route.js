@@ -12,28 +12,32 @@ export async function GET() {
 export async function POST(req) {
   const body = await req.json();
   const {
+    keyword = "",
     seedUrls = [],
     country = "all",
     region = "all",
     industry = "all",
+    emailFilter = "all",
+    targetEmails = 100,
     maxPages = 50,
     depthLevel = "medium",
     speed = "normal",
   } = body || {};
 
-  if (!Array.isArray(seedUrls) || seedUrls.length === 0) {
-    return NextResponse.json({ error: "seedUrls array is required" }, { status: 400 });
-  }
-  const cleaned = seedUrls.map((u) => String(u || "").trim()).filter(Boolean);
-  if (!cleaned.length) {
-    return NextResponse.json({ error: "at least one valid seed URL is required" }, { status: 400 });
+  const cleaned = (Array.isArray(seedUrls) ? seedUrls : []).map((u) => String(u || "").trim()).filter(Boolean);
+  const cleanedKeyword = String(keyword || "").trim();
+  if (!cleaned.length && !cleanedKeyword) {
+    return NextResponse.json({ error: "Provide at least one seed URL or a keyword" }, { status: 400 });
   }
 
   const id = enqueueScrapeJob({
+    keyword: cleanedKeyword,
     seedUrls: cleaned,
     country,
     region,
     industry,
+    emailFilter: ["all", "gmail_only", "personal", "business"].includes(emailFilter) ? emailFilter : "all",
+    targetEmails: Math.max(10, Math.min(5000, Number(targetEmails || 100))),
     maxPages: Math.max(1, Math.min(1000, Number(maxPages || 50))),
     depthLevel: ["shallow", "medium", "deep"].includes(depthLevel) ? depthLevel : "medium",
     speed: ["slow", "normal", "aggressive"].includes(speed) ? speed : "normal",

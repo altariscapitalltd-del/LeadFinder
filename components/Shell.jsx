@@ -1,9 +1,19 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import {
-  LayoutDashboard, Users, Database, Zap, FileText,
-  Inbox, Activity, BarChart3, Settings, Bell, Plus,
-  ChevronDown, Globe
+  Activity,
+  BarChart3,
+  Bot,
+  FileText,
+  Globe,
+  LayoutDashboard,
+  Menu,
+  Settings,
+  Sparkles,
+  Users,
+  X,
+  Zap,
 } from "lucide-react";
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
@@ -13,143 +23,162 @@ import Automation from "./pages/Automation";
 import Analytics from "./pages/Analytics";
 import SettingsPage from "./pages/SettingsPage";
 import Scraping from "./pages/Scraping";
+import Agent from "./pages/Agent";
 import { Toast } from "./ui";
 
 const NAV = [
-  { section: "Overview" },
-  { key: "dashboard",  label: "Dashboard",   icon: LayoutDashboard, badge: null },
-  { section: "Contacts" },
-  { key: "leads",      label: "Leads",        icon: Users,     badgeKey: "contacts" },
-  { section: "Outreach" },
-  { key: "campaigns",  label: "Campaigns",    icon: Zap,       badgeKey: "campaigns" },
-  { key: "templates",  label: "Templates",    icon: FileText },
-  { section: "Automation" },
-  { key: "scraping",   label: "Scraping",     icon: Globe },
-  { key: "automation", label: "Automation",   icon: Activity },
-  { key: "analytics",  label: "Analytics",    icon: BarChart3 },
-  { section: "System" },
-  { key: "settings",   label: "Settings",     icon: Settings },
+  { key: "dashboard", label: "Command", icon: LayoutDashboard, hint: "Overview and momentum" },
+  { key: "agent", label: "Agent", icon: Bot, hint: "Chat and act across the app" },
+  { key: "scraping", label: "Discovery", icon: Globe, hint: "Keyword and source harvesting" },
+  { key: "leads", label: "Leads", icon: Users, hint: "Contacts and enrichment" },
+  { key: "campaigns", label: "Campaigns", icon: Zap, hint: "Outbound execution" },
+  { key: "templates", label: "Templates", icon: FileText, hint: "Prompted copy assets" },
+  { key: "automation", label: "Automation", icon: Activity, hint: "Rules and workflows" },
+  { key: "analytics", label: "Analytics", icon: BarChart3, hint: "Performance and health" },
+  { key: "settings", label: "Settings", icon: Settings, hint: "Providers and delivery" },
+];
+
+const MOBILE_NAV = [
+  { key: "agent", label: "Chat", icon: Bot },
+  { key: "scraping", label: "Tasks", icon: Sparkles },
+  { key: "leads", label: "Data", icon: Users },
+  { key: "settings", label: "Settings", icon: Settings },
 ];
 
 const TITLES = {
-  dashboard:"Dashboard", leads:"Leads", campaigns:"Campaigns",
-  templates:"Templates", scraping:"Scraping", automation:"Automation",
-  analytics:"Analytics", settings:"Settings",
+  dashboard: "Command Center",
+  agent: "App Agent",
+  scraping: "Discovery Engine",
+  leads: "Lead Vault",
+  campaigns: "Campaigns",
+  templates: "Template Studio",
+  automation: "Automation",
+  analytics: "Analytics",
+  settings: "Settings",
 };
 
 export default function Shell() {
   const [page, setPage] = useState("dashboard");
   const [toast, setToast] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [stats, setStats] = useState(null);
 
   const notify = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3200);
   };
 
-  const pages = { dashboard:<Dashboard notify={notify}/>, leads:<Leads notify={notify}/>,
-    campaigns:<Campaigns notify={notify}/>, templates:<Templates notify={notify}/>,
-    scraping:<Scraping notify={notify}/>, automation:<Automation notify={notify}/>, analytics:<Analytics/>,
-    settings:<SettingsPage notify={notify}/> };
+  useEffect(() => {
+    fetch("/api/analytics")
+      .then((r) => r.json())
+      .then((data) => setStats(data))
+      .catch(() => {});
+  }, [page]);
+
+  const pages = {
+    dashboard: <Dashboard notify={notify} />,
+    agent: <Agent notify={notify} />,
+    leads: <Leads notify={notify} />,
+    campaigns: <Campaigns notify={notify} />,
+    templates: <Templates notify={notify} />,
+    scraping: <Scraping notify={notify} />,
+    automation: <Automation notify={notify} />,
+    analytics: <Analytics />,
+    settings: <SettingsPage notify={notify} />,
+  };
+
+  const quickStats = useMemo(() => ([
+    { label: "Contacts", value: stats?.totalContacts ?? 0 },
+    { label: "Sent", value: stats?.totalSent ?? 0 },
+    { label: "Reply Rate", value: `${stats?.replyRate ?? 0}%` },
+  ]), [stats]);
 
   return (
-    <div style={{display:"flex",height:"100vh",overflow:"hidden",background:"var(--bg-base)"}}>
-
-      {/* ── Sidebar ── */}
-      <aside style={{width:216,minWidth:216,background:"var(--bg-surface)",
-        borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column"}}>
-
-        {/* Logo */}
-        <div style={{padding:"18px 16px 14px",borderBottom:"1px solid var(--border)",
-          display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:30,height:30,borderRadius:8,background:"linear-gradient(135deg,#4F8EF7,#A855F7)",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontFamily:"var(--font-display)",fontWeight:800,fontSize:13,color:"white"}}>LF</div>
-          <span style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:15,
-            color:"var(--text-primary)",letterSpacing:"-0.3px"}}>
-            Lead<span style={{color:"var(--accent)"}}>Forge</span>
-          </span>
-        </div>
-
-        {/* Nav */}
-        <div style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
-          {NAV.map((item, i) => {
-            if (item.section) return (
-              <div key={i} style={{padding:"10px 18px 3px",fontSize:9,fontWeight:600,
-                letterSpacing:"1.4px",color:"var(--text-muted)",textTransform:"uppercase"}}>
-                {item.section}
-              </div>
-            );
-            const Icon = item.icon;
-            const active = page === item.key;
-            return (
-              <div key={item.key} style={{padding:"0 8px"}}>
-                <div onClick={() => setPage(item.key)} style={{
-                  display:"flex",alignItems:"center",gap:9,padding:"8px 10px",
-                  borderRadius:7,cursor:"pointer",transition:"all 0.15s",
-                  color: active ? "var(--accent)" : "var(--text-secondary)",
-                  background: active ? "var(--accent-dim)" : "transparent",
-                  fontSize:13,fontWeight:500,position:"relative"
-                }}>
-                  {active && <div style={{position:"absolute",left:0,top:"20%",height:"60%",
-                    width:3,background:"var(--accent)",borderRadius:"0 2px 2px 0"}}/>}
-                  <Icon size={14}/>
-                  {item.label}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* User */}
-        <div style={{padding:10,borderTop:"1px solid var(--border)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:9,padding:8,
-            borderRadius:8,background:"var(--bg-elevated)",cursor:"pointer"}}>
-            <div style={{width:28,height:28,borderRadius:"50%",flexShrink:0,
-              background:"linear-gradient(135deg,#4F8EF7,#A855F7)",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:11,fontWeight:700,color:"white"}}>M</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:12,fontWeight:600,color:"var(--text-primary)"}}>Marne</div>
-              <div style={{fontSize:10,color:"var(--accent)"}}>Pro Plan</div>
-            </div>
-            <ChevronDown size={12} color="var(--text-muted)"/>
+    <div className="app-shell">
+      <div className={`app-backdrop ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
+      <aside className={`app-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="brand-block">
+          <div className="brand-mark">LF</div>
+          <div>
+            <div className="brand-name">LeadForge</div>
+            <div className="brand-sub">AI-native growth OS</div>
           </div>
+        </div>
+
+        <div className="sidebar-panel">
+          <div className="eyebrow">Navigation</div>
+          <nav className="nav-list">
+            {NAV.map((item) => {
+              const Icon = item.icon;
+              const active = item.key === page;
+              return (
+                <button
+                  key={item.key}
+                  className="nav-item"
+                  data-active={active}
+                  onClick={() => {
+                    setPage(item.key);
+                    setSidebarOpen(false);
+                  }}
+                >
+                  <div className="nav-icon"><Icon size={15} /></div>
+                  <div>
+                    <div className="nav-label">{item.label}</div>
+                    <div className="nav-hint">{item.hint}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="sidebar-callout">
+          <div className="eyebrow">Mission Pulse</div>
+          {quickStats.map((item) => (
+            <div key={item.label} className="pulse-row">
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
         </div>
       </aside>
 
-      {/* ── Main ── */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-
-        {/* Topbar */}
-        <div style={{height:50,minHeight:50,background:"var(--bg-surface)",
-          borderBottom:"1px solid var(--border)",display:"flex",
-          alignItems:"center",padding:"0 20px",gap:12}}>
-          <span style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:16,color:"var(--text-primary)"}}>
-            {TITLES[page]}
-          </span>
-          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
-            <button style={{background:"none",border:"1px solid var(--border-light)",borderRadius:7,
-              padding:"6px 8px",cursor:"pointer",color:"var(--text-muted)",position:"relative"}}
-              onClick={()=>notify("No new notifications")}>
-              <Bell size={13}/>
+      <main className="app-main">
+        <header className="topbar">
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="icon-btn mobile-only" onClick={() => setSidebarOpen((v) => !v)}>
+              {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
             </button>
-            <div style={{width:1,height:20,background:"var(--border)"}}/>
-            <button onClick={()=>setPage("leads")} style={{
-              display:"inline-flex",alignItems:"center",gap:6,padding:"7px 14px",
-              borderRadius:7,fontSize:12,fontWeight:600,cursor:"pointer",
-              background:"var(--accent)",color:"white",border:"none"}}>
-              <Plus size={12}/>Add Contact
-            </button>
+            <div>
+              <div className="eyebrow">Production Workspace</div>
+              <div className="topbar-title">{TITLES[page]}</div>
+            </div>
           </div>
-        </div>
 
-        {/* Page content */}
-        <div style={{flex:1,overflowY:"auto"}}>
+          <div className="topbar-actions">
+            <button className="pill-btn" onClick={() => setPage("agent")}><Sparkles size={14} />Open Agent</button>
+            <button className="pill-btn primary" onClick={() => setPage("scraping")}><Globe size={14} />New Discovery Run</button>
+          </div>
+        </header>
+
+        <section className="content-area">
           {pages[page]}
-        </div>
-      </div>
+        </section>
 
-      {toast && <Toast msg={toast} onClose={()=>setToast(null)}/>}
+        <nav className="mobile-bottom-nav">
+          {MOBILE_NAV.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button key={item.key} className="mobile-nav-item" data-active={page === item.key} onClick={() => setPage(item.key)}>
+                <Icon size={16} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </main>
+
+      {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

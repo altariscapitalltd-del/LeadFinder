@@ -17,5 +17,10 @@
 
 ## 4) Operational notes
 - SQLite is local disk storage. Use a persistent volume on VPS/Docker.
+- Vercel does not provide persistent local disk for SQLite-backed production data. For Vercel production, move `contacts`, `campaigns`, `scrape_jobs`, and AI router tables to hosted storage such as Postgres.
+- A migration helper now exists at `scripts/migrate-to-postgres.mjs`. Run `pnpm migrate:postgres` with `DATABASE_URL` set to export current SQLite data into Postgres.
+- Discovery now supports real-time event streaming, per-job result filtering, CSV export, and optional Playwright rendering fallback for JS-heavy pages.
+- AI routing now supports OpenAI, OpenRouter, Gemini, Groq, Anthropic, and OpenAI-compatible endpoints through the Settings UI.
+- Provider model discovery is automatic after saving an API key; users should not manually select models.
 - Rotate API keys if any were ever committed to source history.
 - Keep `.env`, `.db`, `.next`, and `node_modules` out of version control via `.gitignore`.

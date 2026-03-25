@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
-  experimental: { serverComponentsExternalPackages: ["better-sqlite3"] },
+  experimental: { serverComponentsExternalPackages: ["better-sqlite3", "playwright-core", "@sparticuz/chromium"] },
   async headers() {
     return [
       {
@@ -23,7 +23,11 @@ const nextConfig = {
     ];
   },
   webpack: (config) => {
-    config.externals.push({ "better-sqlite3": "commonjs better-sqlite3" });
+    config.externals.push({
+      "better-sqlite3": "commonjs better-sqlite3",
+      "playwright-core": "commonjs playwright-core",
+      "@sparticuz/chromium": "commonjs @sparticuz/chromium",
+    });
     return config;
   },
 };

@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
-// app/api/ai/route.js
 import { NextResponse } from "next/server";
-import { generateEmail, scoreContact, generateReply } from "../../../lib/ai.js";
+import { generateEmail, scoreContact, generateReply, listProviderStatus } from "../../../lib/ai.js";
 import { getDb } from "../../../lib/db.js";
 
 export async function POST(req) {
@@ -41,6 +40,12 @@ export async function POST(req) {
 // GET /api/ai — list configured providers
 export async function GET() {
   const db = getDb();
-  const providers = db.prepare("SELECT id, provider, model, active, updated_at FROM ai_settings ORDER BY id").all();
-  return NextResponse.json({ providers });
+  const providers = listProviderStatus();
+  const routingStats = db.prepare(`
+    SELECT provider, model_id, task_type, total_requests, success_count, error_count, avg_latency_ms, updated_at
+    FROM ai_model_stats
+    ORDER BY updated_at DESC
+    LIMIT 25
+  `).all();
+  return NextResponse.json({ providers, routingStats });
 }
