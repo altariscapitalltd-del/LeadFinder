@@ -22,6 +22,8 @@ export async function POST(req) {
     maxPages = 50,
     depthLevel = "medium",
     speed = "normal",
+    generateEmails = false,
+    generationMode = "off",
   } = body || {};
 
   const cleaned = (Array.isArray(seedUrls) ? seedUrls : []).map((u) => String(u || "").trim()).filter(Boolean);
@@ -41,6 +43,8 @@ export async function POST(req) {
     maxPages: Math.max(1, Math.min(1000, Number(maxPages || 50))),
     depthLevel: ["shallow", "medium", "deep"].includes(depthLevel) ? depthLevel : "medium",
     speed: ["slow", "normal", "aggressive"].includes(speed) ? speed : "normal",
+    generateEmails: Boolean(generateEmails),
+    generationMode: ["off", "roles"].includes(generationMode) ? generationMode : "off",
   });
 
   return NextResponse.json({ id, message: "Scrape job queued" });

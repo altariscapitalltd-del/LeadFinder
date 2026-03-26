@@ -29,6 +29,7 @@ function eventToMessage(event) {
   const meta = event.meta || {};
   if (event.event_type === "crawl_expansion") return event.message;
   if (event.event_type === "email_found") return `${event.message} from ${meta.sourceUrl || "source"}`;
+  if (event.event_type === "email_generated") return `${event.message} from ${meta.sourceUrl || "generated source"}`;
   if (event.event_type === "filter_applied") return `${event.message}`;
   if (event.event_type === "task_complete") return event.message;
   return event.message;
@@ -45,6 +46,8 @@ export default function Scraping({ notify }) {
   const [maxPages, setMaxPages] = useState("300");
   const [depthLevel, setDepthLevel] = useState("deep");
   const [speed, setSpeed] = useState("normal");
+  const [generateEmails, setGenerateEmails] = useState(true);
+  const [generationMode, setGenerationMode] = useState("roles");
   const [loading, setLoading] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [suggestions, setSuggestions] = useState({ source: [], country: [], industry: [], quality: [] });
@@ -133,6 +136,8 @@ export default function Scraping({ notify }) {
           maxPages: Number(maxPages || 300),
           depthLevel,
           speed,
+          generateEmails,
+          generationMode,
         }),
       });
       const data = await res.json();
@@ -156,6 +161,7 @@ export default function Scraping({ notify }) {
   const metrics = useMemo(() => ({
     scanned: selectedJob?.progress?.scanned || 0,
     found: selectedJob?.progress?.inserted || 0,
+    generated: selectedJob?.progress?.generated || 0,
     filtered: selectedJob?.progress?.filteredOut || 0,
     task: selectedJob?.progress?.currentTask || (selectedJob?.status === "running" ? "Discovering..." : "Idle"),
   }), [selectedJob]);
@@ -239,6 +245,20 @@ export default function Scraping({ notify }) {
                 <div className="muted-small">JS-heavy pages can fall back to browser rendering automatically.</div>
               </div>
             </div>
+            <div className="responsive-three">
+              <Select label="Email generation" value={generateEmails ? "on" : "off"} onChange={(value) => setGenerateEmails(value === "on")} options={[
+                { value: "on", label: "Generate valid candidates" },
+                { value: "off", label: "Extraction only" },
+              ]} />
+              <Select label="Generation mode" value={generationMode} onChange={setGenerationMode} options={[
+                { value: "roles", label: "Role-based business emails" },
+                { value: "off", label: "Disabled" },
+              ]} />
+              <div className="insight-card" style={{ padding: 12 }}>
+                <div className="field-label">Validation</div>
+                <div className="muted-small">Generated emails are only kept when format and domain MX checks pass.</div>
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Btn variant="primary" onClick={startJob} disabled={loading}>
                 {loading ? <Spinner /> : <Play size={14} />}
@@ -255,6 +275,7 @@ export default function Scraping({ notify }) {
             {[
               { label: "Pages scanned", value: metrics.scanned },
               { label: "Emails stored", value: metrics.found },
+              { label: "Generated valid", value: metrics.generated },
               { label: "Emails filtered", value: metrics.filtered },
               { label: "Queued pages", value: selectedJob?.progress?.queue?.queued || 0 },
             ].map((item) => (
