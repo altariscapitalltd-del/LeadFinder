@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -24,23 +24,6 @@ const FILTER_OPTIONS = [
   { value: "personal", label: "Personal emails" },
   { value: "business", label: "Business emails" },
 ];
-
-function TypingText({ text }) {
-  const [visible, setVisible] = useState("");
-
-  useEffect(() => {
-    let index = 0;
-    setVisible("");
-    const timer = setInterval(() => {
-      index += 4;
-      setVisible(text.slice(0, index));
-      if (index >= text.length) clearInterval(timer);
-    }, 14);
-    return () => clearInterval(timer);
-  }, [text]);
-
-  return <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.65 }}>{visible || text}</div>;
-}
 
 function eventToMessage(event) {
   const meta = event.meta || {};
@@ -69,6 +52,7 @@ export default function Scraping({ notify }) {
   const [selectedJob, setSelectedJob] = useState(null);
   const [results, setResults] = useState([]);
   const eventSourceRef = useRef(null);
+  const summaryTimerRef = useRef(null);
 
   async function loadSummary() {
     const [j, s] = await Promise.all([
@@ -93,8 +77,10 @@ export default function Scraping({ notify }) {
 
   useEffect(() => {
     loadSummary().catch((error) => notify(error.message));
-    const timer = setInterval(() => loadSummary().catch(() => {}), 4000);
-    return () => clearInterval(timer);
+    summaryTimerRef.current = setInterval(() => loadSummary().catch(() => {}), 9000);
+    return () => {
+      if (summaryTimerRef.current) clearInterval(summaryTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -174,7 +160,7 @@ export default function Scraping({ notify }) {
     task: selectedJob?.progress?.currentTask || (selectedJob?.status === "running" ? "Discovering..." : "Idle"),
   }), [selectedJob]);
 
-  const humanEvents = useMemo(() => (selectedJob?.events || []).slice().reverse(), [selectedJob]);
+  const humanEvents = useMemo(() => selectedJob?.events || [], [selectedJob]);
 
   function exportCsv() {
     const rows = [
@@ -303,7 +289,7 @@ export default function Scraping({ notify }) {
             {humanEvents.map((event) => (
               <div key={event.id} className={`agent-bubble agent-${event.level === "error" ? "tool" : "assistant"}`}>
                 <div className="agent-role">{event.event_type.replace(/_/g, " ")}</div>
-                <TypingText text={eventToMessage(event)} />
+                <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.65 }}>{eventToMessage(event)}</div>
               </div>
             ))}
           </div>
@@ -317,7 +303,7 @@ export default function Scraping({ notify }) {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 700 }}>Job #{job.id}</div>
-                    <div className="muted-small">{job.config?.keyword || "seed crawl"} · {job.config?.emailFilter || "all"} · target {job.config?.targetEmails || 0}</div>
+                    <div className="muted-small">{job.config?.keyword || "seed crawl"} | {job.config?.emailFilter || "all"} | target {job.config?.targetEmails || 0}</div>
                   </div>
                   <div className={`status-chip ${job.status}`}>{job.status}</div>
                 </div>
@@ -370,7 +356,7 @@ export default function Scraping({ notify }) {
             {(selectedJob?.pages || []).slice(0, 25).map((page) => (
               <div key={page.id} className="result-row">
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{page.page_kind || "page"} · depth {page.depth}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{page.page_kind || "page"} | depth {page.depth}</div>
                   <div className="muted-small">{page.url}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -385,4 +371,5 @@ export default function Scraping({ notify }) {
     </div>
   );
 }
+
 
