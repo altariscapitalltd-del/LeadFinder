@@ -56,6 +56,7 @@ export default function Scraping({ notify }) {
   const [results, setResults] = useState([]);
   const eventSourceRef = useRef(null);
   const summaryTimerRef = useRef(null);
+  const runnerTimerRef = useRef(null);
 
   async function loadSummary() {
     const [j, s] = await Promise.all([
@@ -113,6 +114,29 @@ export default function Scraping({ notify }) {
     source.onerror = () => {};
     return () => source.close();
   }, [selectedJobId]);
+
+  useEffect(() => {
+    if (runnerTimerRef.current) {
+      clearInterval(runnerTimerRef.current);
+      runnerTimerRef.current = null;
+    }
+    if (!selectedJobId) return;
+    if (!selectedJob || !["queued", "running"].includes(selectedJob.status)) return;
+
+    const runSlice = () => {
+      fetch(`/api/scrape/jobs/${selectedJobId}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageBudget: 3 }),
+      }).catch(() => {});
+    };
+
+    runSlice();
+    runnerTimerRef.current = setInterval(runSlice, 2500);
+    return () => {
+      if (runnerTimerRef.current) clearInterval(runnerTimerRef.current);
+    };
+  }, [selectedJobId, selectedJob?.status]);
 
   async function startJob() {
     const urls = seedUrls.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
