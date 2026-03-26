@@ -1,24 +1,25 @@
 "use client";
-import { useState, useEffect } from "react";
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Card, CardTitle, Spinner } from "../ui";
-import { Activity, Users, Send, MessageSquare, AlertCircle, TrendingUp, Globe } from "lucide-react";
 
-const COLORS = ["#4F8EF7","#A855F7","#22C55E","#F59E0B","#06B6D4","#EF4444","#64748b","#ec4899"];
+import { useEffect, useMemo, useState } from "react";
+import { Activity, AlertCircle, Globe, MessageSquare, Send, TrendingUp, Users } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Card, CardTitle, Spinner, Surface } from "../ui";
 
-const TTip = ({ active, payload, label }) => {
+const COLORS = ["#9ae6ff", "#7c8cff", "#4ade80", "#fbbf24", "#fb7185", "#22d3ee", "#c084fc", "#94a3b8"];
+
+function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{background:"var(--bg-elevated)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 13px",fontSize:11}}>
-      {label && <div style={{color:"var(--text-muted)",marginBottom:5}}>{label}</div>}
-      {payload.map((p,i) => (
-        <div key={i} style={{color:p.color||"var(--text-secondary)",marginBottom:2}}>
-          {p.name}: <strong>{p.value}</strong>
+    <div style={{ background: "rgba(10,10,10,0.96)", border: "1px solid var(--border)", borderRadius: 14, padding: "10px 12px", fontSize: 12 }}>
+      {label && <div style={{ color: "var(--text-muted)", marginBottom: 6 }}>{label}</div>}
+      {payload.map((item) => (
+        <div key={`${item.name}-${item.value}`} style={{ color: item.color || "var(--text-secondary)" }}>
+          {item.name}: <strong>{item.value}</strong>
         </div>
       ))}
     </div>
   );
-};
+}
 
 export default function Analytics() {
   const [data, setData] = useState(null);
@@ -39,117 +40,191 @@ export default function Analytics() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  if (loading) return <div style={{display:"flex",justifyContent:"center",padding:60}}><Spinner/></div>;
+  const stats = useMemo(
+    () => [
+      { label: "Total Contacts", value: data?.totalContacts ?? 0, icon: <Users size={16} />, color: "#9ae6ff" },
+      { label: "New Today", value: data?.newToday ?? 0, icon: <Activity size={16} />, color: "#4ade80" },
+      { label: "Emails Sent", value: data?.totalSent ?? 0, icon: <Send size={16} />, color: "#7c8cff" },
+      { label: "Reply Rate", value: `${data?.replyRate ?? 0}%`, icon: <MessageSquare size={16} />, color: "#22d3ee" },
+      { label: "Bounce Rate", value: `${data?.bounceRate ?? 0}%`, icon: <AlertCircle size={16} />, color: "#fb7185" },
+    ],
+    [data]
+  );
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+        <Spinner />
+      </div>
+    );
+  }
+
   if (!data) return null;
 
-  const stats = [
-    { label:"Total Contacts",  value:data.totalContacts, icon:<Users size={15}/>,        color:"#4F8EF7" },
-    { label:"New Today",       value:data.newToday,      icon:<Activity size={15}/>,      color:"#22C55E" },
-    { label:"Emails Sent",     value:data.totalSent,     icon:<Send size={15}/>,          color:"#A855F7" },
-    { label:"Reply Rate",      value:`${data.replyRate}%`, icon:<MessageSquare size={15}/>, color:"#06B6D4" },
-    { label:"Bounce Rate",     value:`${data.bounceRate}%`, icon:<AlertCircle size={15}/>, color:"#EF4444" },
-  ];
-
   return (
-    <div style={{padding:20}}>
-      {/* KPI row */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:18}}>
-        {stats.map((s,i) => (
-          <div key={i} style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:12,padding:16,position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${s.color},transparent)`}}/>
-            <div style={{width:34,height:34,borderRadius:8,background:`${s.color}20`,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:10}}>
-              <span style={{color:s.color}}>{s.icon}</span>
-            </div>
-            <div style={{fontSize:10,color:"var(--text-muted)",marginBottom:4}}>{s.label}</div>
-            <div style={{fontFamily:"var(--font-display)",fontWeight:700,fontSize:24,color:"var(--text-primary)"}}>{s.value}</div>
+    <div className="page-shell">
+      <div className="page-hero">
+        <div>
+          <div className="eyebrow">Performance Intelligence</div>
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-subtitle">
+            See what the app is doing well, what delivery quality looks like, and where your data is strongest. This view is optimized for quick scanning, not clutter.
+          </p>
+        </div>
+        <div className="responsive-three" style={{ minWidth: "min(100%, 420px)" }}>
+          <div className="hero-stat">
+            <span className="eyebrow">Growth Days</span>
+            <strong>{data.growth?.length || 0}</strong>
+            <span className="muted-small">days with tracked contacts</span>
           </div>
+          <div className="hero-stat">
+            <span className="eyebrow">Countries</span>
+            <strong>{data.byCountry?.length || 0}</strong>
+            <span className="muted-small">top markets available</span>
+          </div>
+          <div className="hero-stat">
+            <span className="eyebrow">Campaigns</span>
+            <strong>{data.campaigns?.length || 0}</strong>
+            <span className="muted-small">campaign rows in analysis</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="stats-grid analytics-stats-grid">
+        {stats.map((item) => (
+          <Surface key={item.label} className="stat-surface">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 10 }}>
+                  {item.label}
+                </div>
+                <div className="stat-number" style={{ fontSize: "2rem" }}>
+                  {item.value}
+                </div>
+              </div>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 14,
+                  display: "grid",
+                  placeItems: "center",
+                  background: `${item.color}20`,
+                  color: item.color,
+                }}
+              >
+                {item.icon}
+              </div>
+            </div>
+          </Surface>
         ))}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
-        {/* Growth chart */}
+      <div className="dashboard-grid">
         <Card>
-          <CardTitle icon={<TrendingUp size={14}/>}>Contact Growth (Last 14 Days)</CardTitle>
-          {data.growth.length === 0
-            ? <div style={{textAlign:"center",padding:30,color:"var(--text-muted)",fontSize:12}}>No data yet — import contacts to see growth</div>
-            : <ResponsiveContainer width="100%" height={180}>
+          <CardTitle icon={<TrendingUp size={16} />}>Contact Growth</CardTitle>
+          <div style={{ height: 280 }}>
+            {data.growth.length === 0 ? (
+              <div className="muted-small" style={{ padding: 40, textAlign: "center" }}>
+                No growth data yet. Import contacts or complete discovery jobs to start building analytics.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data.growth}>
                   <defs>
-                    <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#4F8EF7" stopOpacity={0.3}/>
-                      <stop offset="100%" stopColor="#4F8EF7" stopOpacity={0}/>
+                    <linearGradient id="analytics-growth" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#9ae6ff" stopOpacity={0.32} />
+                      <stop offset="100%" stopColor="#9ae6ff" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-                  <XAxis dataKey="d" tick={{fill:"var(--text-muted)",fontSize:10}} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{fill:"var(--text-muted)",fontSize:10}} axisLine={false} tickLine={false}/>
-                  <Tooltip content={<TTip/>}/>
-                  <Area type="monotone" dataKey="contacts" name="Contacts" stroke="#4F8EF7" fill="url(#ga)" strokeWidth={2}/>
+                  <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="d" tick={{ fill: "#8f959e", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "#8f959e", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area type="monotone" dataKey="contacts" name="Contacts" stroke="#9ae6ff" fill="url(#analytics-growth)" strokeWidth={2.2} />
                 </AreaChart>
               </ResponsiveContainer>
-          }
+            )}
+          </div>
         </Card>
 
-        {/* Status pie */}
         <Card>
-          <CardTitle icon={<Activity size={14}/>} color="var(--violet)">By Status</CardTitle>
-          {data.byStatus.length === 0
-            ? <div style={{textAlign:"center",padding:30,color:"var(--text-muted)",fontSize:12}}>No contacts yet</div>
-            : <ResponsiveContainer width="100%" height={180}>
+          <CardTitle icon={<Activity size={16} />} color="var(--accent-2)">
+            Status Mix
+          </CardTitle>
+          <div style={{ height: 280 }}>
+            {data.byStatus.length === 0 ? (
+              <div className="muted-small" style={{ padding: 40, textAlign: "center" }}>
+                No contacts yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={data.byStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={65} innerRadius={35} paddingAngle={3}>
-                    {data.byStatus.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                  <Pie data={data.byStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={92} innerRadius={52} paddingAngle={4}>
+                    {data.byStatus.map((entry, index) => (
+                      <Cell key={entry.status || index} fill={COLORS[index % COLORS.length]} />
+                    ))}
                   </Pie>
-                  <Tooltip content={<TTip/>}/>
-                  <Legend iconType="circle" iconSize={6} wrapperStyle={{fontSize:10,color:"var(--text-secondary)"}}/>
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: "#d1d5db" }} />
                 </PieChart>
               </ResponsiveContainer>
-          }
+            )}
+          </div>
         </Card>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-        {/* Campaign performance */}
+      <div className="dashboard-grid">
         <Card>
-          <CardTitle icon={<Send size={14}/>} color="var(--green)">Campaign Performance</CardTitle>
-          {data.campaigns.length === 0
-            ? <div style={{textAlign:"center",padding:30,color:"var(--text-muted)",fontSize:12}}>No campaigns yet</div>
-            : <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={data.campaigns.slice(0,6)} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
-                  <XAxis type="number" tick={{fill:"var(--text-muted)",fontSize:10}} axisLine={false} tickLine={false}/>
-                  <YAxis dataKey="name" type="category" tick={{fill:"var(--text-muted)",fontSize:9}} axisLine={false} tickLine={false} width={90}/>
-                  <Tooltip content={<TTip/>}/>
-                  <Bar dataKey="sent_count" name="Sent" fill="#4F8EF7" radius={[0,3,3,0]}/>
-                  <Bar dataKey="replied_count" name="Replied" fill="#22C55E" radius={[0,3,3,0]}/>
+          <CardTitle icon={<Send size={16} />} color="var(--accent-3)">
+            Campaign Performance
+          </CardTitle>
+          <div style={{ height: 260 }}>
+            {data.campaigns.length === 0 ? (
+              <div className="muted-small" style={{ padding: 40, textAlign: "center" }}>
+                No campaigns yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.campaigns.slice(0, 6)} layout="vertical">
+                  <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: "#8f959e", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: "#d1d5db", fontSize: 11 }} axisLine={false} tickLine={false} width={96} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="sent_count" name="Sent" fill="#7c8cff" radius={[0, 8, 8, 0]} />
+                  <Bar dataKey="replied_count" name="Replied" fill="#4ade80" radius={[0, 8, 8, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-          }
+            )}
+          </div>
         </Card>
 
-        {/* Geographic split */}
         <Card>
-          <CardTitle icon={<Globe size={14}/>} color="var(--cyan)">Top Countries</CardTitle>
-          {data.byCountry.length === 0
-            ? <div style={{textAlign:"center",padding:30,color:"var(--text-muted)",fontSize:12}}>No location data yet</div>
-            : <div style={{paddingTop:4}}>
-                {data.byCountry.slice(0,8).map((c,i) => {
-                  const maxCount = data.byCountry[0]?.count || 1;
-                  return (
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                      <div style={{width:80,fontSize:11,color:"var(--text-secondary)",textAlign:"right",flexShrink:0}}>{c.country||"Unknown"}</div>
-                      <div style={{flex:1,height:6,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:`${(c.count/maxCount)*100}%`,background:COLORS[i%COLORS.length],borderRadius:3}}/>
-                      </div>
-                      <div style={{width:36,fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",flexShrink:0}}>{c.count}</div>
-                    </div>
-                  );
-                })}
-              </div>
-          }
+          <CardTitle icon={<Globe size={16} />} color="var(--cyan)">
+            Top Countries
+          </CardTitle>
+          <div className="insight-stack">
+            {data.byCountry.length === 0 && <div className="muted-small">No country data yet.</div>}
+            {data.byCountry.slice(0, 8).map((item, index) => {
+              const max = data.byCountry[0]?.count || 1;
+              return (
+                <div key={`${item.country}-${index}`} className="insight-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, gap: 10 }}>
+                    <strong>{item.country || "Unknown"}</strong>
+                    <span className="muted-small">{item.count}</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.08)" }}>
+                    <div style={{ width: `${(item.count / max) * 100}%`, height: "100%", borderRadius: 999, background: COLORS[index % COLORS.length] }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </Card>
       </div>
     </div>

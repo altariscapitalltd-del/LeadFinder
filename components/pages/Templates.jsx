@@ -1,177 +1,214 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Plus, Sparkles, Edit3, Trash2, Send, RefreshCw } from "lucide-react";
-import { Card, CardTitle, Btn, Input, Select, Modal, Spinner, EmptyState } from "../ui";
 
-const TONES = ["professional","friendly","sales","technical","casual"];
+import { useEffect, useState } from "react";
+import { Edit3, FileText, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Btn, EmptyState, Input, Modal, Select, Spinner, Surface } from "../ui";
 
-export default function Templates({ notify }) {
+const TONES = ["professional", "friendly", "sales", "technical", "casual"];
+
+export default function Templates({ notify, compact = false }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-
-  // Template form
-  const [form, setForm] = useState({ name:"", subject:"", body_html:"", tone:"professional" });
-
-  // AI generator
+  const [generating, setGenerating] = useState(false);
   const [aiGoal, setAiGoal] = useState("");
   const [aiTone, setAiTone] = useState("professional");
-  const [generating, setGenerating] = useState(false);
+  const [form, setForm] = useState({ name: "", subject: "", body_html: "", tone: "professional" });
 
-  useEffect(() => { loadTemplates(); }, []);
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   async function loadTemplates() {
     const res = await fetch("/api/templates");
-    const d = await res.json();
-    setTemplates(d.templates || []);
+    const data = await res.json();
+    setTemplates(data.templates || []);
   }
 
   async function generateWithAI() {
-    if (!aiGoal.trim()) { notify("Describe the goal of this email"); return; }
+    if (!aiGoal.trim()) {
+      notify("Describe the goal of the email first");
+      return;
+    }
     setGenerating(true);
     try {
       const res = await fetch("/api/ai", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ action:"generate_email", goal:aiGoal, tone:aiTone })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate_email", goal: aiGoal, tone: aiTone }),
       });
       const data = await res.json();
-      if (data.error) { notify("AI error: " + data.error); setGenerating(false); return; }
-      setForm(f => ({
-        ...f,
-        subject: data.subject || f.subject,
-        body_html: data.body_html || data.body_text || f.body_html,
+      if (!res.ok) {
+        notify(data.error || "AI generation failed");
+        return;
+      }
+      setForm((current) => ({
+        ...current,
+        subject: data.subject || current.subject,
+        body_html: data.body_html || data.body_text || current.body_html,
+        tone: aiTone,
       }));
-      notify("AI generated your email — review and save");
-    } catch(e) {
-      notify("AI error: " + e.message);
+      notify("AI draft generated");
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
   }
 
   async function saveTemplate() {
-    if (!form.name || !form.subject || !form.body_html) { notify("Name, subject, and body are required"); return; }
+    if (!form.name || !form.subject || !form.body_html) {
+      notify("Name, subject, and body are required");
+      return;
+    }
     setLoading(true);
-    const method = editing ? "PATCH" : "POST";
-    const body = editing ? { ...form, id:editing } : form;
-    const res = await fetch("/api/templates", {
-      method, headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
-    });
-    const data = await res.json();
-    if (data.error) { notify("Error: " + data.error); setLoading(false); return; }
-    notify(editing ? "Template updated" : "Template saved");
-    setShowModal(false); setEditing(null);
-    setForm({ name:"", subject:"", body_html:"", tone:"professional" });
-    loadTemplates(); setLoading(false);
+    try {
+      const res = await fetch("/api/templates", {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editing ? { ...form, id: editing } : form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        notify(data.error || "Failed to save template");
+        return;
+      }
+      notify(editing ? "Template updated" : "Template saved");
+      setShowModal(false);
+      setEditing(null);
+      setForm({ name: "", subject: "", body_html: "", tone: "professional" });
+      loadTemplates();
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function deleteTemplate(id) {
-    if (!confirm("Delete this template?")) return;
-    await fetch(`/api/templates?id=${id}`, { method:"DELETE" });
-    notify("Template deleted"); loadTemplates();
+    await fetch(`/api/templates?id=${id}`, { method: "DELETE" });
+    notify("Template deleted");
+    loadTemplates();
   }
 
-  function openEdit(t) {
-    setEditing(t.id);
-    setForm({ name:t.name, subject:t.subject, body_html:t.body_html, tone:t.tone });
+  function openEdit(template) {
+    setEditing(template.id);
+    setForm({ name: template.name, subject: template.subject, body_html: template.body_html, tone: template.tone });
+    setAiGoal("");
+    setAiTone(template.tone || "professional");
     setShowModal(true);
   }
 
   function openNew() {
     setEditing(null);
-    setForm({ name:"", subject:"", body_html:"", tone:"professional" });
-    setAiGoal(""); setShowModal(true);
+    setForm({ name: "", subject: "", body_html: "", tone: "professional" });
+    setAiGoal("");
+    setAiTone("professional");
+    setShowModal(true);
   }
 
   return (
-    <div style={{padding:20}}>
-      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
-        <Btn variant="primary" onClick={openNew}><Plus size={11}/>New Template</Btn>
-      </div>
-
-      {templates.length === 0 && !loading && (
-        <EmptyState icon={<span style={{fontSize:48}}>📝</span>}
-          title="No templates yet"
-          sub="Create your first email template or use the AI generator"
-          action={<Btn variant="primary" onClick={openNew}><Plus size={11}/>Create Template</Btn>}/>
+    <div className="page-shell">
+      {!compact && (
+        <div className="page-hero">
+          <div>
+            <div className="eyebrow">Template Library</div>
+            <h1 className="page-title">Templates</h1>
+            <p className="page-subtitle">Generate with AI, keep reusable drafts in one place, and edit without losing structure.</p>
+          </div>
+          <div className="hero-stat">
+            <span className="eyebrow">Stored templates</span>
+            <strong>{templates.length}</strong>
+            <span className="muted-small">ready for campaigns and one-off sends</span>
+          </div>
+        </div>
       )}
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
-        {templates.map(t => (
-          <div key={t.id} style={{background:"var(--bg-card)",border:"1px solid var(--border)",
-            borderRadius:12,padding:16,transition:"border-color 0.2s"}}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
-              <div style={{fontWeight:600,fontSize:13,color:"var(--text-primary)"}}>{t.name}</div>
-              <span style={{fontSize:9,background:"var(--violet-dim)",color:"var(--violet)",
-                padding:"2px 7px",borderRadius:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>{t.tone}</span>
-            </div>
-            <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",marginBottom:8}}>{t.subject}</div>
-            <div style={{background:"var(--bg-elevated)",borderRadius:8,padding:"10px 12px",
-              fontSize:11,color:"var(--text-secondary)",minHeight:60,lineHeight:1.6,
-              fontFamily:"var(--font-mono)",overflow:"hidden",
-              display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical"}}>
-              {t.body_html.replace(/<[^>]+>/g," ").trim()}
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
-              <span style={{fontSize:10,color:"var(--text-muted)"}}>Used {t.use_count} times</span>
-              <div style={{display:"flex",gap:6}}>
-                <Btn size="sm" onClick={()=>openEdit(t)}><Edit3 size={10}/>Edit</Btn>
-                <Btn size="sm" variant="danger" onClick={()=>deleteTemplate(t.id)}><Trash2 size={10}/></Btn>
+      <Surface>
+        <div className="section-toolbar">
+          <div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18 }}>Template Library</div>
+            <div className="muted-small">Use AI for a fast first draft, then refine the final version before saving.</div>
+          </div>
+          <Btn variant="primary" onClick={openNew}>
+            <Plus size={14} />
+            New Template
+          </Btn>
+        </div>
+
+        {templates.length === 0 && (
+          <EmptyState
+            icon={<FileText size={34} />}
+            title="No templates yet"
+            sub="Create your first template or use the AI draft builder."
+            action={<Btn variant="primary" onClick={openNew}><Plus size={14} />Create Template</Btn>}
+          />
+        )}
+
+        <div className="card-grid-two">
+          {templates.map((template) => (
+            <div key={template.id} className="data-card">
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{template.name}</div>
+                  <div className="muted-small" style={{ marginTop: 6, fontFamily: "var(--font-mono)" }}>{template.subject}</div>
+                </div>
+                <span className="mini-chip">{template.tone}</span>
+              </div>
+              <div className="insight-card" style={{ minHeight: 110, lineHeight: 1.7 }}>
+                {String(template.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220) || "No preview available"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <span className="muted-small">Used {template.use_count || 0} times</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={() => openEdit(template)}><Edit3 size={14} />Edit</Btn>
+                  <Btn variant="danger" onClick={() => deleteTemplate(template.id)}><Trash2 size={14} />Delete</Btn>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </Surface>
 
       {showModal && (
-        <Modal title={editing ? "Edit Template" : "New Template"} onClose={()=>setShowModal(false)} width={600}>
-          <div style={{display:"grid",gap:12}}>
-            {/* AI Generator */}
-            <div style={{background:"var(--bg-elevated)",border:"1px solid var(--border)",borderRadius:10,padding:14}}>
-              <div style={{fontSize:11,color:"var(--violet)",fontWeight:600,marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-                <Sparkles size={12}/>AI Email Generator
+        <Modal title={editing ? "Edit Template" : "Create Template"} onClose={() => setShowModal(false)} width={760}>
+          <div style={{ display: "grid", gap: 14 }}>
+            <div className="insight-card">
+              <div className="section-toolbar" style={{ padding: 0 }}>
+                <div>
+                  <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><Sparkles size={16} />AI Draft Builder</div>
+                  <div className="muted-small">Describe the goal and let the system draft a usable email structure.</div>
+                </div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8}}>
-                <input value={aiGoal} onChange={e=>setAiGoal(e.target.value)}
-                  placeholder="Describe goal: e.g. cold pitch to SaaS founders about our analytics tool"
-                  style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:7,
-                    padding:"7px 11px",fontSize:12,color:"var(--text-primary)",outline:"none",fontFamily:"var(--font-body)"}}
-                  onFocus={e=>e.target.style.borderColor="var(--accent)"}
-                  onBlur={e=>e.target.style.borderColor="var(--border)"}/>
-                <select value={aiTone} onChange={e=>setAiTone(e.target.value)}
-                  style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:7,
-                    padding:"7px 10px",fontSize:12,color:"var(--text-secondary)"}}>
-                  {TONES.map(t=><option key={t} value={t}>{t}</option>)}
-                </select>
-                <Btn variant="violet" onClick={generateWithAI} disabled={generating}>
-                  {generating ? <Spinner/> : <Sparkles size={11}/>}
-                  {generating ? "Generating..." : "Generate"}
-                </Btn>
+              <div className="form-grid-three" style={{ marginTop: 12 }}>
+                <Input label="Goal" value={aiGoal} onChange={setAiGoal} placeholder="Cold pitch to SaaS founders about analytics" />
+                <Select label="Tone" value={aiTone} onChange={setAiTone} options={TONES.map((item) => ({ value: item, label: item }))} />
+                <div style={{ display: "flex", alignItems: "end" }}>
+                  <Btn variant="violet" onClick={generateWithAI} disabled={generating}>
+                    {generating ? <Spinner /> : <Sparkles size={14} />}
+                    {generating ? "Generating" : "Generate Draft"}
+                  </Btn>
+                </div>
               </div>
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <Input label="Template Name *" value={form.name} onChange={v=>setForm(f=>({...f,name:v}))} placeholder="SaaS Cold Pitch"/>
-              <Select label="Tone" value={form.tone} onChange={v=>setForm(f=>({...f,tone:v}))} options={TONES}/>
+            <div className="form-grid-two">
+              <Input label="Template name" value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} placeholder="SaaS founder intro" />
+              <Select label="Tone" value={form.tone} onChange={(value) => setForm((current) => ({ ...current, tone: value }))} options={TONES.map((item) => ({ value: item, label: item }))} />
             </div>
-            <Input label="Subject Line *" value={form.subject} onChange={v=>setForm(f=>({...f,subject:v}))} placeholder="Quick question about {{company}}"/>
+            <Input label="Subject" value={form.subject} onChange={(value) => setForm((current) => ({ ...current, subject: value }))} placeholder="Quick thought for {{company}}" />
             <div>
-              <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.8px",fontWeight:600}}>Body (HTML) *</div>
-              <textarea value={form.body_html} onChange={e=>setForm(f=>({...f,body_html:e.target.value}))}
-                rows={10} placeholder={"<p>Hi {{name}},</p>\n<p>Your message...</p>"}
-                style={{background:"var(--bg-elevated)",border:"1px solid var(--border)",borderRadius:7,
-                  padding:"8px 12px",fontSize:12,color:"var(--text-primary)",outline:"none",
-                  width:"100%",fontFamily:"var(--font-mono)",resize:"vertical",lineHeight:1.6}}
-                onFocus={e=>e.target.style.borderColor="var(--accent)"}
-                onBlur={e=>e.target.style.borderColor="var(--border)"}/>
-              <div style={{fontSize:10,color:"var(--text-muted)",marginTop:4}}>
-                Available variables: <code style={{color:"var(--accent)"}}>{"{{name}} {{email}} {{country}} {{company}}"}</code>
-              </div>
+              <div className="field-label">Body (HTML)</div>
+              <textarea
+                className="app-textarea"
+                rows={12}
+                value={form.body_html}
+                onChange={(event) => setForm((current) => ({ ...current, body_html: event.target.value }))}
+                placeholder={"<p>Hi {{name}},</p>\n<p>Your message...</p>"}
+              />
+              <div className="muted-small" style={{ marginTop: 8 }}>Variables: {`{{name}} {{email}} {{country}} {{company}}`}</div>
             </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:4}}>
-              <Btn onClick={()=>setShowModal(false)}>Cancel</Btn>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Btn onClick={() => setShowModal(false)}>Cancel</Btn>
               <Btn variant="primary" onClick={saveTemplate} disabled={loading}>
-                {loading ? <Spinner/> : null}
+                {loading ? <Spinner /> : <Plus size={14} />}
                 {editing ? "Update Template" : "Save Template"}
               </Btn>
             </div>

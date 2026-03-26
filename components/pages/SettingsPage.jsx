@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Cpu, KeyRound, Mail, Plus, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
@@ -36,6 +36,7 @@ export default function SettingsPage({ notify }) {
   useEffect(() => {
     loadSmtp();
     loadAi();
+    loadCompliance();
   }, []);
 
   async function loadSmtp() {
@@ -53,6 +54,16 @@ export default function SettingsPage({ notify }) {
     } finally {
       setLoadingAi(false);
     }
+  }
+
+  async function loadCompliance() {
+    try {
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+      if (data.settings) {
+        setCompliance((current) => ({ ...current, ...data.settings }));
+      }
+    } catch {}
   }
 
   async function saveSmtp() {
@@ -132,6 +143,17 @@ export default function SettingsPage({ notify }) {
     await fetch(`/api/ai/providers?provider=${provider}`, { method: "DELETE" });
     notify(`${provider} removed`);
     loadAi();
+  }
+
+  async function saveCompliance(next) {
+    setCompliance(next);
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+    } catch {}
   }
 
   return (
@@ -237,7 +259,7 @@ export default function SettingsPage({ notify }) {
           ].map((item) => (
             <div key={item.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
               <div style={{ fontWeight: 600 }}>{item.label}</div>
-              <Toggle value={compliance[item.key]} onChange={(value) => setCompliance((current) => ({ ...current, [item.key]: value }))} />
+              <Toggle value={compliance[item.key]} onChange={(value) => saveCompliance({ ...compliance, [item.key]: value })} />
             </div>
           ))}
         </Card>
@@ -287,3 +309,5 @@ export default function SettingsPage({ notify }) {
     </div>
   );
 }
+
+

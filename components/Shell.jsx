@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity,
-  BarChart3,
   Bot,
-  FileText,
   Globe,
   LayoutDashboard,
   Menu,
+  Search,
   Settings,
   Sparkles,
   Users,
@@ -17,13 +15,10 @@ import {
 } from "lucide-react";
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
-import Campaigns from "./pages/Campaigns";
-import Templates from "./pages/Templates";
-import Automation from "./pages/Automation";
-import Analytics from "./pages/Analytics";
 import SettingsPage from "./pages/SettingsPage";
 import Scraping from "./pages/Scraping";
 import Agent from "./pages/Agent";
+import Outreach from "./pages/Outreach";
 import { Toast } from "./ui";
 
 const NAV = [
@@ -31,18 +26,22 @@ const NAV = [
   { key: "agent", label: "Agent", icon: Bot, hint: "Chat and act across the app" },
   { key: "scraping", label: "Discovery", icon: Globe, hint: "Keyword and source harvesting" },
   { key: "leads", label: "Leads", icon: Users, hint: "Contacts and enrichment" },
-  { key: "campaigns", label: "Campaigns", icon: Zap, hint: "Outbound execution" },
-  { key: "templates", label: "Templates", icon: FileText, hint: "Prompted copy assets" },
-  { key: "automation", label: "Automation", icon: Activity, hint: "Rules and workflows" },
-  { key: "analytics", label: "Analytics", icon: BarChart3, hint: "Performance and health" },
+  { key: "outreach", label: "Outreach", icon: Zap, hint: "Templates, campaigns, automation" },
   { key: "settings", label: "Settings", icon: Settings, hint: "Providers and delivery" },
 ];
 
 const MOBILE_NAV = [
   { key: "agent", label: "Chat", icon: Bot },
-  { key: "scraping", label: "Tasks", icon: Sparkles },
+  { key: "scraping", label: "Discover", icon: Sparkles },
   { key: "leads", label: "Data", icon: Users },
+  { key: "outreach", label: "Outreach", icon: Zap },
   { key: "settings", label: "Settings", icon: Settings },
+];
+
+const QUICK_SPACES = [
+  "Vercel Environment Setup",
+  "Email Scraper Testing Resources",
+  "Battery Calculation 12V 50Ah",
 ];
 
 const TITLES = {
@@ -50,10 +49,7 @@ const TITLES = {
   agent: "App Agent",
   scraping: "Discovery Engine",
   leads: "Lead Vault",
-  campaigns: "Campaigns",
-  templates: "Template Studio",
-  automation: "Automation",
-  analytics: "Analytics",
+  outreach: "Outreach Studio",
   settings: "Settings",
 };
 
@@ -63,27 +59,24 @@ export default function Shell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState(null);
 
-  const notify = (msg) => {
+  const notify = useCallback((msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3200);
-  };
+  }, []);
 
   useEffect(() => {
     fetch("/api/analytics")
       .then((r) => r.json())
       .then((data) => setStats(data))
       .catch(() => {});
-  }, [page]);
+  }, []);
 
   const pages = {
     dashboard: <Dashboard notify={notify} />,
     agent: <Agent notify={notify} />,
     leads: <Leads notify={notify} />,
-    campaigns: <Campaigns notify={notify} />,
-    templates: <Templates notify={notify} />,
     scraping: <Scraping notify={notify} />,
-    automation: <Automation notify={notify} />,
-    analytics: <Analytics />,
+    outreach: <Outreach notify={notify} />,
     settings: <SettingsPage notify={notify} />,
   };
 
@@ -102,6 +95,13 @@ export default function Shell() {
           <div>
             <div className="brand-name">LeadForge</div>
             <div className="brand-sub">AI-native growth OS</div>
+          </div>
+        </div>
+
+        <div className="sidebar-panel" style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", borderRadius: 18, padding: "11px 14px" }}>
+            <Search size={14} color="var(--text-muted)" />
+            <input placeholder="Search workspace" style={{ background: "transparent", border: "none", outline: "none", color: "var(--text-primary)", width: "100%" }} />
           </div>
         </div>
 
@@ -133,6 +133,15 @@ export default function Shell() {
         </div>
 
         <div className="sidebar-callout">
+          <div className="eyebrow">Recent Spaces</div>
+          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+            {QUICK_SPACES.map((item) => (
+              <div key={item} style={{ fontSize: 12, color: "var(--text-secondary)", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>{item}</div>
+            ))}
+          </div>
+        </div>
+
+        <div className="sidebar-callout">
           <div className="eyebrow">Mission Pulse</div>
           {quickStats.map((item) => (
             <div key={item.label} className="pulse-row">
@@ -150,14 +159,14 @@ export default function Shell() {
               {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
             </button>
             <div>
-              <div className="eyebrow">Production Workspace</div>
+              <div className="eyebrow">LeadForge Workspace</div>
               <div className="topbar-title">{TITLES[page]}</div>
             </div>
           </div>
 
           <div className="topbar-actions">
-            <button className="pill-btn" onClick={() => setPage("agent")}><Sparkles size={14} />Open Agent</button>
-            <button className="pill-btn primary" onClick={() => setPage("scraping")}><Globe size={14} />New Discovery Run</button>
+            <button className="pill-btn" onClick={() => setPage("agent")}><Sparkles size={14} />Agent</button>
+            <button className="pill-btn primary" onClick={() => setPage("scraping")}><Globe size={14} />Run Discovery</button>
           </div>
         </header>
 
